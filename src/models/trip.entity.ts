@@ -73,6 +73,15 @@ export class Trip {
   @Column("boolean", { name: "is_deleted", default: () => "false" })
   isDeleted: boolean;
 
+  @Column("date", { name: "start_date", nullable: true })
+  startDate: string | null;
+
+  @Column("numeric", { name: "weight_start", nullable: true })
+  weightStart: string | null;
+
+  @Column("numeric", { name: "weight_end", nullable: true })
+  weightEnd: string | null;
+
   @BeforeInsert()
   @BeforeUpdate()
   updateDateTime() {
