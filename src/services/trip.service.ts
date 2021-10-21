@@ -1,7 +1,7 @@
 import { Service, Initializer, Destructor } from 'fastify-decorators';
 import { In } from 'typeorm';
 import TripRepository from '../repositories/trip.repository';
-import VwTripInprogressRepository from '../repositories/vw-trip-inprogress.repository';
+// import VwTripInprogressRepository from '../repositories/vw-trip-inprogress.repository';
 import VwTripAllRepository from '../repositories/vw-trip-all.repository';
 import JobCarrierRepository from '../repositories/job-carrier.repository';
 import Security from 'utility-layer/dist/security'
@@ -37,12 +37,14 @@ export interface IShipmentTrip {
   bankAccountId?: number
   carrierPaymentStatus?: "PAID" | "AWAITING" | "APPROVED" | "REJECTED" | "ISSUED"
   carrierPaymentDate?: string
+
+  status?: "REJECTED" | "DONE" | "OPEN" | "IN_PROGRESS"
 }
 
 const tripRepository = new TripRepository();
 const jobCarrierRepository = new JobCarrierRepository();
 const security = new Security();
-const vwTripInprogressRepository = new VwTripInprogressRepository()
+// const vwTripInprogressRepository = new VwTripInprogressRepository()
 const vwTripAllRepository = new VwTripAllRepository()
 const truckRepository = new TruckRepository();
 const bankAccRepository = new BankAccountRepository();
@@ -159,7 +161,8 @@ export default class TripService {
       job_id: jobId,
       truck_id: truckId,
       weight_start: weightStart,
-      weight_end: weightEnd
+      weight_end: weightEnd,
+      status
     } = jobCarrier[0];
     const jobDetail = await tripRepository.getJobDetail(jobId);
     const truckDetail = await tripRepository.getTruckDetail(truckId);
@@ -200,6 +203,7 @@ export default class TripService {
       id: tripId,
       weightStart,
       weightEnd,
+      status,
       bankAccount: bankAccountDecrypted,
       job: {
         ...jobDetail,
@@ -442,6 +446,10 @@ export default class TripService {
 
     if (data?.weightEnd) {
       tripData.weightEnd = data.weightEnd.toString();
+    }
+
+    if (data?.status) {
+      tripData.status = data.status;
     }
 
     await tripRepository.update(decodeTripId, tripData);

@@ -43,7 +43,8 @@ export default class JobCarrierRepository {
         jc.job_id as job_id,
         t.truck_id as truck_id,
         t.weight_start as weight_start,
-        t.weight_end as weight_end
+        t.weight_end as weight_end,
+        t.status as status
       FROM job_carrier jc
       INNER JOIN trip t
         ON t.job_carrier_id = jc.id
