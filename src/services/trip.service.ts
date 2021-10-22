@@ -1,3 +1,4 @@
+import mmtz from 'moment-timezone';
 import { Service, Initializer, Destructor } from 'fastify-decorators';
 import { In } from 'typeorm';
 import TripRepository from '../repositories/trip.repository';
@@ -39,6 +40,14 @@ export interface IShipmentTrip {
   carrierPaymentDate?: string
 
   status?: "REJECTED" | "DONE" | "OPEN" | "IN_PROGRESS"
+  isVatShipper?: boolean
+  isVatCarrier?: boolean
+}
+
+interface IUpdateShipmentTrip {
+  tripId: string;
+  userId: string;
+  data: IShipmentTrip;
 }
 
 const tripRepository = new TripRepository();
@@ -152,7 +161,7 @@ export default class TripService {
 
   async getTripDetail(tripId: string): Promise<any> {
     const decodeTripId = security.decodeUserId(tripId);
-    const jobCarrier = await jobCarrierRepository.getJobAndTruckIdByJobCarrierId(decodeTripId);
+    const jobCarrier = await jobCarrierRepository.getJobAndTruckByTripId(decodeTripId);
     if (!jobCarrier?.length) {
       throw new Error('Request not found');
     }
@@ -162,7 +171,8 @@ export default class TripService {
       truck_id: truckId,
       weight_start: weightStart,
       weight_end: weightEnd,
-      status
+      status,
+      start_date: startDate
     } = jobCarrier[0];
     const jobDetail = await tripRepository.getJobDetail(jobId);
     const truckDetail = await tripRepository.getTruckDetail(truckId);
@@ -204,6 +214,7 @@ export default class TripService {
       weightStart,
       weightEnd,
       status,
+      startDate: mmtz(startDate).tz('Asia/Bangkok').format('YYYY-MM-DD'),
       bankAccount: bankAccountDecrypted,
       job: {
         ...jobDetail,
@@ -371,17 +382,19 @@ export default class TripService {
     await tripRepository.delete(decTripId, { updatedUser: userId.toString() });
   }
 
-  async updateShipmentTrip({ tripId, userId, data }: { tripId: string; userId: string; data: IShipmentTrip; }): Promise<void> {
+  async updateShipmentTrip({ tripId, userId, data }: IUpdateShipmentTrip): Promise<void> {
     const decodeTripId = security.decodeUserId(tripId);
     const decodeUserId = security.decodeUserId(userId);
 
     // get payment shipper
     const paymentShipper = await paymentShipperRepository.findByTripId(decodeTripId, { select: ['feePercentage'] });
-    const shipperFeePercentage = paymentShipper?.feePercentage ?? 1;
+    // const shipperFeePercentage = paymentShipper?.feePercentage ?? 1;
+    const shipperFeePercentage = data?.isVatShipper ? 1 : 0;
 
     // get payment carrier
     const paymentCarrier = await paymentCarrierRepository.findByTripId(decodeTripId, { select: ['feePercentage'] });
-    const carrierFeePercentage = paymentCarrier?.feePercentage ?? 1;
+    // const carrierFeePercentage = paymentCarrier?.feePercentage ?? 1;
+    const carrierFeePercentage = data?.isVatCarrier ? 1 : 0;
 
     // update payment
     let paymentShipperData: Partial<PaymentShipper> = {
@@ -409,7 +422,8 @@ export default class TripService {
       ...(!paymentShipper ? { tripId: decodeTripId, createdAt: new Date() } : undefined),
       ...(data?.shipperPaymentStatus ? { paymentStatus: data.shipperPaymentStatus } : undefined),
       ...(data?.shipperBillStartDate ? { billStartDate: data.shipperBillStartDate } : undefined),
-      ...(data?.shipperPaymentDate ? { paymentDate: data.shipperPaymentDate } : undefined)
+      ...(data?.shipperPaymentDate ? { paymentDate: data.shipperPaymentDate } : undefined),
+      feePercentage: shipperFeePercentage.toString()
     }
 
     await paymentShipperRepository.updateByTripId(decodeTripId, paymentShipperData);
@@ -430,7 +444,8 @@ export default class TripService {
       ...(!paymentCarrier ? { tripId: decodeTripId, createdAt: new Date() } : undefined),
       ...(data?.bankAccountId ? { bankAccountId: data.bankAccountId } : undefined),
       ...(data?.carrierPaymentDate ? { paymentDate: data.carrierPaymentDate } : undefined),
-      ...(data?.carrierPaymentStatus ? { paymentStatus: data.carrierPaymentStatus } : undefined)
+      ...(data?.carrierPaymentStatus ? { paymentStatus: data.carrierPaymentStatus } : undefined),
+      feePercentage: carrierFeePercentage.toString(),
     }
 
     await paymentCarrierRepository.updateByTripId(decodeTripId, paymentCarrierData);

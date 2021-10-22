@@ -190,6 +190,8 @@ export const patchTripSchema: FastifySchema = {
       carrierPaymentStatus: { type: 'string' },
       carrierPaymentDate: { type: 'string' },
       status: { type: 'string' },
+      isVatShipper: { type: 'boolean' },
+      isVatCarrier: { type: 'boolean' },
     }
   },
   response: {
@@ -220,6 +222,7 @@ export const getDetailTripSchema: FastifySchema = {
         weightStart: { type: 'string' },
         weightEnd: { type: 'string' },
         status: { type: 'string' },
+        startDate: { type: 'string' },
         bankAccount: {
           type: 'array',
           items: {
