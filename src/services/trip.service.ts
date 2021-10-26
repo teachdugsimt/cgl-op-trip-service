@@ -35,7 +35,7 @@ export interface IShipmentTrip {
   weightStart?: number
   weightEnd?: number
   carrierPricePerTon?: number
-  bankAccountId?: number
+  bankAccountId?: string
   carrierPaymentStatus?: "PAID" | "AWAITING" | "APPROVED" | "REJECTED" | "ISSUED"
   carrierPaymentDate?: string
 
@@ -77,7 +77,19 @@ const encodeIds = (data: any[]) => data?.map((attr: any) => ({
   id: security.encodeUserId(attr.id)
 })) ?? [];
 
-const encodeId = (data: any) => data ? { ...data, id: security.encodeUserId(data.id) } : null;
+const encodeId = (data: any, opts?: string[]) => {
+  if (!data) return null;
+
+  const optional: any = {};
+  if (opts?.length) {
+    opts.forEach(key => optional[key] = security.encodeUserId(data[key]))
+  }
+  return {
+    ...data,
+    id: security.encodeUserId(data.id),
+    ...optional
+  }
+};
 
 @Service()
 export default class TripService {
@@ -207,7 +219,7 @@ export default class TripService {
     const paymentCarrier = await paymentCarrierRepository.findByTripId(decodeTripId, {
       select: ['id', 'pricePerTon', 'bankAccountId', 'amount', 'feeAmount', 'feePercentage', 'netAmount', 'paymentStatus', 'paymentDate']
     });
-    const paymentCarrierDecrypted = encodeId(paymentCarrier);
+    const paymentCarrierDecrypted = encodeId(paymentCarrier, ['bankAccountId']);
 
     return {
       id: tripId,
@@ -442,7 +454,7 @@ export default class TripService {
     paymentCarrierData = {
       ...paymentCarrierData,
       ...(!paymentCarrier ? { tripId: decodeTripId, createdAt: new Date() } : undefined),
-      ...(data?.bankAccountId ? { bankAccountId: data.bankAccountId } : undefined),
+      ...(data?.bankAccountId ? { bankAccountId: security.decodeUserId(data.bankAccountId) } : undefined),
       ...(data?.carrierPaymentDate ? { paymentDate: data.carrierPaymentDate } : undefined),
       ...(data?.carrierPaymentStatus ? { paymentStatus: data.carrierPaymentStatus } : undefined),
       feePercentage: carrierFeePercentage.toString(),
